@@ -1,4 +1,4 @@
-name: Sysdig Secure Scan
+name: Sysdig Secure Container Scan
 
 on:
   push:
@@ -10,47 +10,45 @@ jobs:
   scan:
     runs-on: ubuntu-latest
 
-    # required for SARIF upload
     permissions:
-      security-events: write
+      security-events: write    # required by upload-sarif
       contents: read
       actions: read
 
-    # scan three Docker-build contexts in parallel
     strategy:
       matrix:
         image:
           - name: vote
             ctx: ./vote
             tag: abtaux/abt-voting-app:vote-${{ github.sha }}
-            cat: vote-scan
+            category: vote-scan
           - name: worker
             ctx: ./worker
             tag: abtaux/abt-voting-app:worker-${{ github.sha }}
-            cat: worker-scan
+            category: worker-scan
           - name: result
             ctx: ./result
             tag: abtaux/abt-voting-app:result-${{ github.sha }}
-            cat: result-scan
+            category: result-scan
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build ${{ matrix.image.name }}
+      - name: Build image ${{ matrix.image.name }}
         run: docker build -t ${{ matrix.image.tag }} ${{ matrix.image.ctx }}
 
-      - name: Sysdig scan ${{ matrix.image.name }}
+      - name: Scan image ${{ matrix.image.name }}
         id: scan
         uses: sysdiglabs/scan-action@v5
-        # let the step “succeed” for GH even if scan fails, so outputs exist
         continue-on-error: true
         with:
           image-tag: ${{ matrix.image.tag }}
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
+          sysdig-secure-url: ${{ secrets.SYSDIG_SECURE_URL }}
           stop-on-processing-error: false
           stop-on-failed-policy-eval: false
 
@@ -59,10 +57,10 @@ jobs:
           echo "sarifReport=${{ steps.scan.outputs.sarifReport }}"
           echo "scanReport=${{ steps.scan.outputs.scanReport }}"
 
-      - name: Upload SARIF ${{ matrix.image.name }}
-        if: steps.scan.outputs.sarifReport != ''   # run only if file exists
+      - name: Upload SARIF (${{ matrix.image.name }})
+        if: steps.scan.outputs.sarifReport != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.scan.outputs.sarifReport }}
-          category: ${{ matrix.image.cat }}
+          category: ${{ matrix.image.category }}
 
