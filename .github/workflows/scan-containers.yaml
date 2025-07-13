@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      security-events: write    # required by upload-sarif
+      security-events: write    # für upload-sarif
       contents: read
       actions: read
 
@@ -19,16 +19,16 @@ jobs:
       matrix:
         image:
           - name: vote
-            build-context: ./vote
-            tag: abtaux/abt-voting-app:latest
+            context: ./vote
+            tag: abtaux/abt-voting-app:vote    # eindeutiger Tag pro Image
             category: vote-scan
           - name: worker
-            build-context: ./worker
-            tag: abtaux/abt-voting-app:latest
+            context: ./worker
+            tag: abtaux/abt-voting-app:worker
             category: worker-scan
           - name: result
-            build-context: ./result
-            tag: abtaux/abt-voting-app:latest
+            context: ./result
+            tag: abtaux/abt-voting-app:result
             category: result-scan
 
     steps:
@@ -39,7 +39,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Build image ${{ matrix.image.name }}
-        run: docker build -t ${{ matrix.image.tag }} ${{ matrix.image.build-context }}
+        run: docker build -t ${{ matrix.image.tag }} ${{ matrix.image.context }}
 
       - name: Scan image ${{ matrix.image.name }}
         id: sysdig_scan
@@ -47,17 +47,21 @@ jobs:
         continue-on-error: true
         with:
           image-tag: ${{ matrix.image.tag }}
-          sysdig-secure-token: ${{ secrets.SECURE_API_TOKEN }}
+          sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
+          sysdig-secure-url: ${{ secrets.SYSDIG_SECURE_URL }}  # optional, Standard: https://secure.sysdig.com
+          standalone: false
           stop-on-processing-error: false
           stop-on-failed-policy-eval: false
 
       - name: Debug SARIF path for ${{ matrix.image.name }}
-        run: echo "SARIF report => ${{ github.workspace }}/sarif.json"
+        run: |
+          echo "Outputs:"
+          echo "  sarifReport=${{ steps.sysdig_scan.outputs.sarifReport }}"
 
       - name: Upload SARIF (${{ matrix.image.name }})
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ github.workspace }}/sarif.json
+          sarif_file: ${{ steps.sysdig_scan.outputs.sarifReport }}
           category: ${{ matrix.image.category }}
 
