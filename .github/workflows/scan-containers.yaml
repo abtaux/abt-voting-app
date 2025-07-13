@@ -26,7 +26,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ github.workspace }}/sarif.json
+          sarif_file: ${{ steps.scan-vote.outputs.sarifReport }}
           category: vote-scan
       
       - name: Build worker image
@@ -43,7 +43,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ github.workspace }}/sarif.json
+          sarif_file: ${{ steps.scan-worker.outputs.sarifReport }}
           category: worker-scan
       
       - name: Build result image
@@ -60,6 +60,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ github.workspace }}/sarif.json
+          sarif_file: ${{ steps.scan-result.outputs.sarifReport }}
           category: result-scan
+
 
