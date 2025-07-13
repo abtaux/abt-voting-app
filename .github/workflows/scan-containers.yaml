@@ -11,56 +11,55 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Build vote image
         run: docker build -t myrepo/vote:latest ./vote
-      
+
       - name: Scan vote image
         id: scan-vote
         uses: sysdiglabs/scan-action@v5
         with:
           image-tag: myrepo/vote:latest
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-      
+
       - name: Upload SARIF for vote
-        if: always()
+        if: success() || failure()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.scan-vote.outputs.sarifReport }}
           category: vote-scan
-      
+
       - name: Build worker image
         run: docker build -t myrepo/worker:latest ./worker
-      
+
       - name: Scan worker image
         id: scan-worker
         uses: sysdiglabs/scan-action@v5
         with:
           image-tag: myrepo/worker:latest
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-      
+
       - name: Upload SARIF for worker
-        if: always()
+        if: success() || failure()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.scan-worker.outputs.sarifReport }}
           category: worker-scan
-      
+
       - name: Build result image
         run: docker build -t myrepo/result:latest ./result
-      
+
       - name: Scan result image
         id: scan-result
         uses: sysdiglabs/scan-action@v5
         with:
           image-tag: myrepo/result:latest
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-      
+
       - name: Upload SARIF for result
-        if: always()
+        if: success() || failure()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.scan-result.outputs.sarifReport }}
           category: result-scan
-
 
