@@ -17,7 +17,7 @@ jobs:
 
       - name: Scan vote image
         id: scan-vote
-        uses: sysdiglabs/scan-action@v6
+        uses: sysdiglabs/scan-action@v5
         with:
           image-tag: myrepo/vote:latest
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
@@ -33,7 +33,7 @@ jobs:
 
       - name: Scan worker image
         id: scan-worker
-        uses: sysdiglabs/scan-action@v6
+        uses: sysdiglabs/scan-action@v5
         with:
           image-tag: myrepo/worker:latest
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
@@ -49,7 +49,7 @@ jobs:
 
       - name: Scan result image
         id: scan-result
-        uses: sysdiglabs/scan-action@v6
+        uses: sysdiglabs/scan-action@v5
         with:
           image-tag: myrepo/result:latest
           sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
