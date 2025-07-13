@@ -1,4 +1,4 @@
-name: Sysdig Secure Scan
+name: Sysdig Secure Container Scan
 
 on:
   push:
@@ -9,76 +9,86 @@ jobs:
   container-scan:
     runs-on: ubuntu-latest
     permissions:
-      # needed for upload-sarif
-      security-events: write
+      security-events: write   # für upload-sarif
       actions: read
       contents: read
 
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v3
 
-    #-------------------------------------------------
-    # VOTE IMAGE
-    #-------------------------------------------------
+    # ------------------------------
+    # Scan Vote Image
+    # ------------------------------
     - name: Build vote image
       run: docker build -t myrepo/vote:latest ./vote
 
-    - name: Scan vote
+    - name: Scan vote image
       id: scan_vote
       uses: sysdiglabs/scan-action@v5
-      continue-on-error: true           # let SARIF be produced even if scan “fails”
+      continue-on-error: true
       with:
         image-tag: myrepo/vote:latest
         sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
+        stop-on-processing-error: false     # Scanner läuft bis zum Ende
+        stop-on-failed-policy-eval: false   # auch bei Policy‐Verstößen
+    - name: Debug Vote SARIF path
+      run: echo "Vote SARIF: ${{ github.workspace }}/sarif.json"
 
     - name: Upload SARIF (vote)
-      if: always()                      # run even when scan “fails”
+      if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: ${{ steps.scan_vote.outputs.sarifReport }}
+        sarif_file: ${{ github.workspace }}/sarif.json
         category: vote-scan
 
-    #-------------------------------------------------
-    # WORKER IMAGE
-    #-------------------------------------------------
+    # ------------------------------
+    # Scan Worker Image
+    # ------------------------------
     - name: Build worker image
       run: docker build -t myrepo/worker:latest ./worker
 
-    - name: Scan worker
+    - name: Scan worker image
       id: scan_worker
       uses: sysdiglabs/scan-action@v5
       continue-on-error: true
       with:
         image-tag: myrepo/worker:latest
         sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
+        stop-on-processing-error: false
+        stop-on-failed-policy-eval: false
+    - name: Debug Worker SARIF path
+      run: echo "Worker SARIF: ${{ github.workspace }}/sarif.json"
 
     - name: Upload SARIF (worker)
       if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: ${{ steps.scan_worker.outputs.sarifReport }}
+        sarif_file: ${{ github.workspace }}/sarif.json
         category: worker-scan
 
-    #-------------------------------------------------
-    # RESULT IMAGE
-    #-------------------------------------------------
+    # ------------------------------
+    # Scan Result Image
+    # ------------------------------
     - name: Build result image
       run: docker build -t myrepo/result:latest ./result
 
-    - name: Scan result
+    - name: Scan result image
       id: scan_result
       uses: sysdiglabs/scan-action@v5
       continue-on-error: true
       with:
         image-tag: myrepo/result:latest
         sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
+        stop-on-processing-error: false
+        stop-on-failed-policy-eval: false
+    - name: Debug Result SARIF path
+      run: echo "Result SARIF: ${{ github.workspace }}/sarif.json"
 
     - name: Upload SARIF (result)
       if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: ${{ steps.scan_result.outputs.sarifReport }}
+        sarif_file: ${{ github.workspace }}/sarif.json
         category: result-scan
-
 
