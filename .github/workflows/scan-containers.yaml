@@ -6,89 +6,56 @@ on:
   pull_request:
 
 jobs:
-  container-scan:
+  scan:
     runs-on: ubuntu-latest
+
     permissions:
-      security-events: write   # für upload-sarif
-      actions: read
+      security-events: write  # required by upload-sarif
       contents: read
+      actions: read
+
+    strategy:
+      matrix:
+        image:
+          - name: vote
+            build-context: ./vote
+            tag: myrepo/vote:latest
+            category: vote-scan
+          - name: worker
+            build-context: ./worker
+            tag: myrepo/worker:latest
+            category: worker-scan
+          - name: result
+            build-context: ./result
+            tag: myrepo/result:latest
+            category: result-scan
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    # ------------------------------
-    # Scan Vote Image
-    # ------------------------------
-    - name: Build vote image
-      run: docker build -t myrepo/vote:latest ./vote
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Scan vote image
-      id: scan_vote
-      uses: sysdiglabs/scan-action@v5
-      continue-on-error: true
-      with:
-        image-tag: myrepo/vote:latest
-        sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-        stop-on-processing-error: false     # Scanner läuft bis zum Ende
-        stop-on-failed-policy-eval: false   # auch bei Policy‐Verstößen
-    - name: Debug Vote SARIF path
-      run: echo "Vote SARIF: ${{ github.workspace }}/sarif.json"
+      - name: Build image ${{ matrix.image.name }}
+        run: docker build -t ${{ matrix.image.tag }} ${{ matrix.image.build-context }}
 
-    - name: Upload SARIF (vote)
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: ${{ github.workspace }}/sarif.json
-        category: vote-scan
+      - name: Scan image ${{ matrix.image.name }}
+        id: sysdig_scan
+        uses: sysdiglabs/scan-action@v5
+        continue-on-error: true
+        with:
+          image-tag: ${{ matrix.image.tag }}
+          sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
+          stop-on-processing-error: false
+          stop-on-failed-policy-eval: false
 
-    # ------------------------------
-    # Scan Worker Image
-    # ------------------------------
-    - name: Build worker image
-      run: docker build -t myrepo/worker:latest ./worker
+      - name: Debug SARIF path for ${{ matrix.image.name }}
+        run: echo "SARIF report => ${{ github.workspace }}/sarif.json"
 
-    - name: Scan worker image
-      id: scan_worker
-      uses: sysdiglabs/scan-action@v5
-      continue-on-error: true
-      with:
-        image-tag: myrepo/worker:latest
-        sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-        stop-on-processing-error: false
-        stop-on-failed-policy-eval: false
-    - name: Debug Worker SARIF path
-      run: echo "Worker SARIF: ${{ github.workspace }}/sarif.json"
-
-    - name: Upload SARIF (worker)
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: ${{ github.workspace }}/sarif.json
-        category: worker-scan
-
-    # ------------------------------
-    # Scan Result Image
-    # ------------------------------
-    - name: Build result image
-      run: docker build -t myrepo/result:latest ./result
-
-    - name: Scan result image
-      id: scan_result
-      uses: sysdiglabs/scan-action@v5
-      continue-on-error: true
-      with:
-        image-tag: myrepo/result:latest
-        sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-        stop-on-processing-error: false
-        stop-on-failed-policy-eval: false
-    - name: Debug Result SARIF path
-      run: echo "Result SARIF: ${{ github.workspace }}/sarif.json"
-
-    - name: Upload SARIF (result)
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: ${{ github.workspace }}/sarif.json
-        category: result-scan
-
+      - name: Upload SARIF (${{ matrix.image.name }})
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ github.workspace }}/sarif.json
+          category: ${{ matrix.image.category }}
